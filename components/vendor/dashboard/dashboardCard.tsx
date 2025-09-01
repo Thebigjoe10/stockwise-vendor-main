@@ -3,7 +3,6 @@ import React from "react";
 import { SlHandbag } from "react-icons/sl";
 import { SiProducthunt } from "react-icons/si";
 import { GiTakeMyMoney } from "react-icons/gi";
-import { BsThreeDotsVertical } from "react-icons/bs";
 
 // ✅ Import currency utils
 import { fmtMoney } from "@/utils/currency";

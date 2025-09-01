@@ -15,12 +15,11 @@ export function fmtMoney(
   country?: string,
   withCents = false
 ): string {
-  const region = country ?? "US"; // fallback to US if not provided
+  const region = country ?? "NG"; // ✅ Default to Nigeria
 
   switch (region) {
     case "NG":
       return "₦" + amount.toLocaleString("en-US", {
-        
         minimumFractionDigits: withCents ? 2 : 0,
         maximumFractionDigits: withCents ? 2 : 0,
       });
@@ -43,9 +42,9 @@ export function fmtMoney(
       });
   }
 
-  // ✅ fallback using Intl
+  // ✅ fallback (still works if you later add more countries)
   const currency = countryToCurrency[region];
-  if (!currency) return amount.toString();
+  if (!currency) return "₦" + amount.toLocaleString("en-US"); // fallback to Naira
 
   return new Intl.NumberFormat(currency.locale, {
     style: "currency",
@@ -54,4 +53,5 @@ export function fmtMoney(
     maximumFractionDigits: withCents ? 2 : 0,
   }).format(amount);
 }
+
 
