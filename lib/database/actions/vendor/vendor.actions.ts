@@ -44,7 +44,7 @@ export const getSingleVendor = async (vendorId: string) => {
     const vendor = await Vendor.findById(vendorObjectId);
     if (!vendor) {
       return {
-        message: "Vendor does'nt exists.",
+        message: "Vendor doesn't exists.",
         success: false,
         vendor: [],
       };
