@@ -20,7 +20,7 @@ export const createProduct = async (
   vendorId: string,
   sku: string,
   color: any,
-  images: [],
+  images: { url: string; public_id: string }[],
   sizes: Array<{ size: string; qty: string; price: string }>,
   discount: number,
   name: string,

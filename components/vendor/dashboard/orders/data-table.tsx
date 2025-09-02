@@ -367,6 +367,7 @@ export default function AllOrdersTable({
                 { value: "-", label: "Order Payment Method" },
                 { value: "cash", label: "COD" },
                 { value: "RazorPay", label: "RazorPay" },
+                { value: "Paystack", label: "Paystack" },
               ]}
             />
           </div>

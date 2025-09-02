@@ -34,44 +34,58 @@ export const sizeAnalytics = async () => {
   try {
     await connectToDatabase();
     const vendor = await verify_vendor();
-    const products = await Product.find({
-      "vendor._id": vendor?.id,
-    });
+    const products = await Product.find({ "vendor._id": vendor?.id });
+
     if (!products) {
       return {
-        message: "Vendor Id is invalid!",
         success: false,
+        message: "Vendor Id is invalid!",
+        data: [],
       };
     }
+
     if (products.length === 0) {
       return {
-        message: "No products found for this vendor.",
         success: false,
+        message: "No products found for this vendor.",
+        data: [],
       };
     }
-    const individualSizeAnalytics = products.reduce(
-      (acc: any = {}, product: any) => {
-        product.subProducts.forEach((subProduct: any) => {
-          subProduct.sizes.forEach((size: any) => {
-            if (acc[size.size]) {
-              acc[size.size] += size.sold;
-            } else {
-              acc[size.size] = size.sold;
-            }
-          });
+
+    const individualSizeAnalytics = products.reduce((acc: any = {}, product: any) => {
+      product.subProducts.forEach((subProduct: any) => {
+        subProduct.sizes.forEach((size: any) => {
+          if (acc[size.size]) {
+            acc[size.size] += size.sold;
+          } else {
+            acc[size.size] = size.sold;
+          }
         });
-        return acc;
-      }
-    );
+      });
+      return acc;
+    }, {});
+
     const sizeData = Object.keys(individualSizeAnalytics).map((size) => ({
-      name: size,
-      value: individualSizeAnalytics[size],
-    }));
-    return JSON.parse(JSON.stringify(sizeData));
+    size,
+    value: individualSizeAnalytics[size],
+  }));
+
+
+    return {
+      success: true,
+      message: "Size analytics fetched successfully.",
+      data: sizeData,
+    };
   } catch (error: any) {
-    console.log(error);
+    console.error("Error in sizeAnalytics:", error);
+    return {
+      success: false,
+      message: "Server error occurred.",
+      data: [],
+    };
   }
 };
+
 
 // get top selling products for vendor
 export const getTopSellingProducts = async () => {

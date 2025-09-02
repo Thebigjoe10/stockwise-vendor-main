@@ -15,7 +15,7 @@ import OrdersTable from "@/components/vendor/dashboard/OrdersTable";
 const VendorDashboardPage = async () => {
   const data = await getDashboardData().catch((err) => {
     console.error("Error fetching dashboard data:", err);
-    return { orders: [], products: [], vendor: "Vendor" };
+    return { orders: [], products: [], vendor: "Vendor", lowStockProducts: [], outOfStockProducts: [] };
   });
 
   const allOrdersData = await calculateTotalOrders().catch((err) => {
@@ -52,9 +52,16 @@ const VendorDashboardPage = async () => {
         <OrdersTable data={{ orders: data?.orders || [] }} />
       </div>
       {/* Product stats */}
+      <div className="my-6">
+      <div className="titleStyle">Product Performance</div>
       <ProductData />
-      <LowStockProducts />
-      <OutOfStockProducts />
+      </div>
+      <div className="my-6">
+        <LowStockProducts data={data?.lowStockProducts ?? []} />
+      </div>
+      <div className="my-6">  
+      <OutOfStockProducts data={data?.outOfStockProducts ?? []}/>
+    </div>
     </div>
   );
 };

@@ -11,6 +11,7 @@ import { Drawer, Text } from "@mantine/core";
 import { useState } from "react";
 import UpdateProductComponent from "./update.product";
 import { modals } from "@mantine/modals";
+import { fmtMoney } from "@/utils/currency";
 
 const ProductsDataTable = ({ products }: { products: any }) => {
   const [opened, setOpened] = useState(false);
@@ -137,7 +138,7 @@ const ProductsDataTable = ({ products }: { products: any }) => {
       const sizes = subProduct.sizes || [];
 
       const sizePrices = sizes
-        .map((size: any) => `${size.size}: ₹${size.price}`)
+        .map((s: any) => `${s.size}: ${fmtMoney(s.price)}`)
         .join(", ");
       const sizeLabels = sizes.map((size: any) => size.size).join(", ");
 

@@ -53,6 +53,7 @@ interface FormValues {
 }
 const CreateProductPage = () => {
   const [images, setImages] = useState<string[]>([]);
+  const [colorImagePreview, setColorImagePreview] = useState<string []>([]);
   const [parents, setParents] = useState<{ _id: string; name: string }[]>([]);
   const [categories, setCategories] = useState<{ _id: string; name: string }[]>(
     []
@@ -136,138 +137,85 @@ const CreateProductPage = () => {
       if (file) {
         const previewUrl = URL.createObjectURL(file);
         form.setFieldValue("color.image", file);
-        setImages([previewUrl]);
+        setColorImagePreview([previewUrl]);
       }
     },
     [form]
   );
   // handle Submit function:
-  const handleSubmit = async (values: FormValues) => {
-    const createProductHandler = async () => {
-      const array = [];
-      let style_img = "";
-      let uploaded_images: any = "";
-      setLoading(true);
+// Replace your current handleSubmit with this:
+const handleSubmit = async (values: FormValues) => {
+  if (!vendor) return alert("Vendor not loaded");
+  setLoading(true);
 
-      // check if any images were uploaded
-      if (!values.imageFiles.length) {
-        alert("No image files are selected");
-        setLoading(false);
-        return;
-      }
-      // upload images to cloudinary
-      for (let i = 0; i < values.imageFiles.length; i++) {
-        const formData = new FormData();
-        formData.append("file", values.imageFiles[i]);
-        formData.append("upload_preset", "website");
-        try {
-          const uploadResponse = await fetch(
-            `https://api.cloudinary.com/v1_1/dtxh3ew7s/image/upload`,
-            {
-              method: "POST",
-              body: formData,
-            }
-          );
-          const uploadedImagesData = await uploadResponse.json();
-          array.push(uploadedImagesData);
-        } catch (error: any) {
-          console.log("Error uploading images:", error);
-          setLoading(false);
-          return;
-        }
-      }
+  try {
+    // Upload product images
+    const uploadedImages = [];
+    for (const file of values.imageFiles) {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("upload_preset", "website");
 
-      // Prepare the uploaded images for submission
-      uploaded_images = array.map((i) => ({
-        url: i.secure_url,
-        public_id: i.public_id,
-      }));
+      const res = await fetch(
+        `https://api.cloudinary.com/v1_1/${process.env.CLOUDINARY_NAME}/image/upload`,
+        { method: "POST", body: formData }
+      );
+      const data = await res.json();
+      uploadedImages.push({ url: data.secure_url, public_id: data.public_id });
+    }
 
-      // Handle color image upload if applicable
-      if (values.color.image) {
-        const colorFormData = new FormData();
-        colorFormData.append("file", values.color.image);
-        colorFormData.append("upload_preset", "website");
+    // Upload color image
+    let colorUrl = "";
+    if (values.color.image) {
+      const colorFormData = new FormData();
+      colorFormData.append("file", values.color.image);
+      colorFormData.append("upload_preset", "website");
 
-        try {
-          const uploadResponse = await fetch(
-            `https://api.cloudinary.com/v1_1/dtxh3ew7s/image/upload`,
-            {
-              method: "POST",
-              body: colorFormData,
-            }
-          );
-          const uploadedImageData = await uploadResponse.json();
-          style_img = uploadedImageData.secure_url;
-        } catch (error) {
-          console.error("Error uploading color image:", error);
-          setLoading(false);
-          return;
-        }
-      }
+      const colorRes = await fetch(
+        `https://api.cloudinary.com/v1_1/${process.env.CLOUDINARY_NAME}/image/upload`,
+        { method: "POST", body: colorFormData }
+      );
+      const colorData = await colorRes.json();
+      colorUrl = colorData.secure_url;
+    }
 
-      // Prepare the product details for submission
-      const productDetails = {
-        parent: values.parent,
-        sku: values.sku,
-        color: {
-          image: style_img,
-          color: values.color.color,
-        },
-        images: uploaded_images,
-        sizes: values.sizes,
-        discount: values.discount,
-        name: values.name,
-        description: values.description,
-        brand: values.brand,
-        details: values.details,
-        questions: values.questions,
-        category: values.category,
-        subCategories: values.subCategories,
-        benefits: values.benefits,
-        ingredients: values.ingredients,
-        longDescription: values.longDescription,
-      };
-
-      try {
-        await createProduct(
-          vendor._id,
-          productDetails.sku,
-          productDetails.color,
-          productDetails.images,
-          productDetails.sizes,
-          productDetails.discount,
-          productDetails.name,
-          productDetails.description,
-          productDetails.longDescription,
-
-          productDetails.brand,
-          productDetails.details,
-          productDetails.questions,
-          productDetails.category,
-          productDetails.subCategories,
-          productDetails.benefits,
-          productDetails.ingredients,
-          productDetails.parent
-        ).then((res) => {
-          if (res.success) {
-            setLoading(false);
-
-            alert(res.message || "Product created Successfully");
-          } else {
-            setLoading(false);
-
-            alert(res.message || "An error occurred.");
-          }
-        });
-      } catch (error) {
-        console.error("Error while creating the product:", error);
-        setLoading(false);
-        alert(error);
-      }
+    // Submit to backend
+    const productDetails = {
+      ...values,
+      images: uploadedImages,
+      color: { color: values.color.color, image: colorUrl },
     };
-    await createProductHandler();
-  };
+
+    const res = await createProduct(
+      vendor._id,
+      productDetails.sku,
+      productDetails.color,
+      productDetails.images,
+      productDetails.sizes,
+      productDetails.discount,
+      productDetails.name,
+      productDetails.description,
+      productDetails.longDescription,
+      productDetails.brand,
+      productDetails.details,
+      productDetails.questions,
+      productDetails.category,
+      productDetails.subCategories,
+      productDetails.benefits,
+      productDetails.ingredients,
+      productDetails.parent
+    );
+
+    if (res.success) alert(res.message || "Product created successfully");
+    else alert(res.message || "Error creating product");
+  } catch (err) {
+    console.error(err);
+    alert("Error uploading product");
+  } finally {
+    setLoading(false);
+  }
+};
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -343,115 +291,110 @@ const CreateProductPage = () => {
     fetchParentData();
   }, [form.values.parent]);
   return (
-    <div>
-      <div className="titleStyle">Create a Product</div>
-      <Box pos="relative">
-        {loading && (
-          <LoadingOverlay
-            visible={loading}
-            zIndex={1000}
-            overlayProps={{ radius: "sm", blur: 2 }}
-          />
-        )}
+  <div className="max-w-5xl mx-auto p-6 bg-white rounded-2xl shadow-md">
+    <h1 className="text-2xl font-bold mb-6">Create a Product</h1>
 
-        <form
-          onSubmit={form.onSubmit((values: any) => {
-            handleSubmit(values);
-          })}
-          className="w-[80%]"
-        >
-          <TextInput
-            {...form.getInputProps("name")}
-            mt="md"
-            label="Name"
-            placeholder="Name"
-            required
-          />
+    <Box pos="relative">
+      {loading && (
+        <LoadingOverlay
+          visible={loading}
+          zIndex={1000}
+          overlayProps={{ radius: "sm", blur: 2 }}
+        />
+      )}
+
+      <form
+        onSubmit={form.onSubmit((values: any) => handleSubmit(values))}
+        className="space-y-10"
+      >
+        {/* General Info */}
+        <section>
+          <h2 className="text-lg font-semibold mb-4 border-b pb-2">
+            General Information
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <TextInput {...form.getInputProps("name")} label="Name" required />
+            <TextInput {...form.getInputProps("brand")} label="Brand" />
+            <TextInput {...form.getInputProps("sku")} label="SKU" required />
+            <NumberInput
+              {...form.getInputProps("discount")}
+              label="Discount"
+              required
+            />
+          </div>
+
           <Textarea
             {...form.getInputProps("description")}
-            placeholder="Description"
-            label="Description"
+            label="Short Description"
+            placeholder="Enter product description..."
+            minRows={3}
+            className="mt-4"
             required
           />
-          <TextInput
-            {...form.getInputProps("brand")}
-            placeholder="Brand"
-            label="Brand"
-          />
-          <TextInput
-            {...form.getInputProps("sku")}
-            placeholder="SKU"
-            label="SKU"
-            required
-          />
+        </section>
 
-          <NumberInput
-            {...form.getInputProps("discount")}
-            label="Discount"
-            placeholder="Discount"
-            mt="md"
-            required
-          />
-
-          <ColorInput
-            {...form.getInputProps("color.color")}
-            label="Select Color"
-            description="Pick a color for the product"
-            placeholder="Choose color"
-            required
-            error={form.errors.color}
-          />
-
-          <FileInput
-            label="Pick a Product Color image"
-            placeholder="Choose file"
-            accept="image/*"
-            onChange={(file) => handleColorImageChange(file as File)}
-            required
-            error={form.errors.color}
-          />
-
-          {parents.length > 0 && (
-            <Select
-              {...form.getInputProps("parent")}
-              label="Parent"
-              placeholder="Select a parent"
-              data={parents.map((parent) => ({
-                value: parent._id,
-                label: parent.name,
-              }))}
-            />
-          )}
-
-          {categories.length > 0 && (
-            <Select
-              {...form.getInputProps("category")}
-              label="Category"
-              placeholder="Select a category"
-              data={categories.map((category) => ({
-                value: category._id,
-                label: category.name,
-              }))}
+        {/* Color */}
+        <section>
+          <h2 className="text-lg font-semibold mb-4 border-b pb-2">Color</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <ColorInput
+              {...form.getInputProps("color.color")}
+              label="Select Color"
+              description="Pick a color for the product"
               required
-              error={form.errors.category}
             />
-          )}
+            <FileInput
+              label="Color Image"
+              placeholder="Choose file"
+              accept="image/*"
+              onChange={(file) => handleColorImageChange(file as File)}
+              required
+            />
+          </div>
+        </section>
+
+        {/* Categories */}
+        <section>
+          <h2 className="text-lg font-semibold mb-4 border-b pb-2">
+            Categories
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {parents.length > 0 && (
+              <Select
+                {...form.getInputProps("parent")}
+                label="Parent"
+                placeholder="Select a parent"
+                data={parents.map((p) => ({ value: p._id, label: p.name }))}
+              />
+            )}
+
+            {categories.length > 0 && (
+              <Select
+                {...form.getInputProps("category")}
+                label="Category"
+                placeholder="Select a category"
+                data={categories.map((c) => ({ value: c._id, label: c.name }))}
+                required
+              />
+            )}
+          </div>
+
           <MultiSelect
             {...form.getInputProps("subCategories")}
             label="Sub Categories"
-            placeholder="Pick one of the category to select Sub Categories "
-            data={subs.map((sub: any) => ({
-              value: sub._id,
-              label: sub.name,
-            }))}
+            placeholder="Pick subcategories"
+            data={subs.map((s: any) => ({ value: s._id, label: s.name }))}
+            className="mt-4"
             required
           />
-          <div>
-            <Text size="md" mb="xs">
-              Sizes
-            </Text>
+        </section>
+
+        {/* Sizes */}
+        <section>
+          <h2 className="text-lg font-semibold mb-4 border-b pb-2">Sizes</h2>
+          <div className="space-y-3">
             {form.values.sizes.map((item, index) => (
-              <Group key={index} mt="xs">
+              <Group key={index} grow>
                 <TextInput
                   placeholder="Size"
                   {...form.getInputProps(`sizes.${index}.size`)}
@@ -467,54 +410,58 @@ const CreateProductPage = () => {
                   {...form.getInputProps(`sizes.${index}.price`)}
                   required
                 />
-                <Button variant="outline" onClick={addSize}>
-                  <IoAdd size={20} color="blue" />
+                <Button
+                  variant="light"
+                  onClick={addSize}
+                  className="shrink-0"
+                >
+                  <IoAdd size={20} />
                 </Button>
                 <Button
                   color="red"
-                  variant="outline"
+                  variant="light"
                   onClick={() => form.removeListItem("sizes", index)}
+                  className="shrink-0"
                 >
-                  <MdDelete color="red" size={20} />
+                  <MdDelete size={20} />
                 </Button>
               </Group>
             ))}
           </div>
+        </section>
 
-          {/* Repeat similar blocks for Benefits, Ingredients, Questions, and Details */}
-          {/* Benefits Section */}
-          <div>
-            <Text size="md" mb="xs">
-              Benefits
-            </Text>
+        {/* Benefits */}
+        <section>
+          <h2 className="text-lg font-semibold mb-4 border-b pb-2">Benefits</h2>
+          <div className="space-y-3">
             {form.values.benefits.map((item, index) => (
-              <Group key={index} mt="xs">
+              <Group key={index} grow>
                 <TextInput
                   placeholder="Benefit"
                   {...form.getInputProps(`benefits.${index}.name`)}
                   required
                 />
-                <Button variant="outline" onClick={addBenefit}>
-                  <IoAdd size={20} color="blue" />
+                <Button variant="light" onClick={addBenefit}>
+                  <IoAdd size={20} />
                 </Button>
                 <Button
                   color="red"
-                  variant="outline"
+                  variant="light"
                   onClick={() => form.removeListItem("benefits", index)}
                 >
-                  <MdDelete color="red" size={20} />
+                  <MdDelete size={20} />
                 </Button>
               </Group>
             ))}
           </div>
+        </section>
 
-          {/* Similarly add Ingredients, Questions, and Details sections */}
-          <div>
-            <Text size="md" mb="xs">
-              Details
-            </Text>
+        {/* Details */}
+        <section>
+          <h2 className="text-lg font-semibold mb-4 border-b pb-2">Details</h2>
+          <div className="space-y-3">
             {form.values.details.map((item, index) => (
-              <Group key={index} mt="xs">
+              <Group key={index} grow>
                 <TextInput
                   placeholder="Name"
                   {...form.getInputProps(`details.${index}.name`)}
@@ -525,64 +472,73 @@ const CreateProductPage = () => {
                   {...form.getInputProps(`details.${index}.value`)}
                   required
                 />
-                <Button variant="outline" onClick={addDetail}>
-                  <IoAdd size={20} color="blue" />
+                <Button variant="light" onClick={addDetail}>
+                  <IoAdd size={20} />
                 </Button>
                 <Button
                   color="red"
-                  variant="outline"
+                  variant="light"
                   onClick={() => form.removeListItem("details", index)}
                 >
-                  <MdDelete color="red" size={20} />
+                  <MdDelete size={20} />
                 </Button>
               </Group>
             ))}
           </div>
+        </section>
 
-          <div className="mb-[30px]">
-            <Text size="md" mb="xs">
-              Long Description
-            </Text>
-            <JoditEditor
-              ref={editor}
-              value={form.values.longDescription}
-              onBlur={(newContent) =>
-                form.setFieldValue("longDescription", newContent)
-              }
-            />
-          </div>
+        {/* Long Description */}
+        <section>
+          <h2 className="text-lg font-semibold mb-4 border-b pb-2">
+            Long Description
+          </h2>
+          <JoditEditor
+            ref={editor}
+            value={form.values.longDescription}
+            onBlur={(newContent) =>
+              form.setFieldValue("longDescription", newContent)
+            }
+          />
+        </section>
 
+        {/* Media */}
+        <section>
+          <h2 className="text-lg font-semibold mb-4 border-b pb-2">Media</h2>
           <FileInput
-            label="Upload images"
+            label="Upload product images"
             placeholder="Choose files"
             multiple
             accept="image/*"
             onChange={(files) => handleImageChange(files as File[])}
             required
-            error={form.errors.imageFiles}
           />
 
           <SimpleGrid cols={4} spacing="md" mt="md">
-            {images.map((image, index) => (
-              <Box key={index}>
-                <Image
-                  src={image}
-                  alt={`Uploaded image ${index + 1}`}
-                  width="100%"
-                  height="auto"
-                  fit="cover"
-                />
-              </Box>
-            ))}
-          </SimpleGrid>
+          {images.map((image, index) => (
+            <Box key={index}>
+              <Image src={image} alt={`Uploaded image ${index + 1}`} radius="md" fit="cover" />
+            </Box>
+          ))}
+          {colorImagePreview && (
+            <Box>
+              <Image src={colorImagePreview} alt="Color Image" radius="md" fit="cover" />
+            </Box>
+          )}
+        </SimpleGrid>
 
-          <Button type="submit" mt="md">
+        </section>
+
+        {/* Submit */}
+        <div className="flex justify-end">
+          <Button type="submit" color="blue" className="px-6">
             {loading ? "Loading..." : "Submit"}
           </Button>
-        </form>
-      </Box>
-    </div>
-  );
+        </div>
+      </form>
+    </Box>
+  </div>
+);
+
 };
 
 export default CreateProductPage;

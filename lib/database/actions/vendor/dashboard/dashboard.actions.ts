@@ -38,10 +38,18 @@ export const getDashboardData = async () => {
       orders: JSON.parse(JSON.stringify(orders)),
       products: JSON.parse(JSON.stringify(products)),
       vendor: vendorName, 
+      lowStockProducts: JSON.parse(JSON.stringify(await getLowStockProducts())),
+      outOfStockProducts: JSON.parse(JSON.stringify(await getOutOfStockProducts())),
     };
   } catch (error: any) {
     console.log(error);
-  }
+  }return {
+      orders: [],
+      products: [],
+      vendor: "Vendor",
+      lowStockProducts: [], 
+      outOfStockProducts: []
+    };
 };
 
 // PRODUCTS:
