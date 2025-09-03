@@ -39,19 +39,10 @@ export const sizeAnalytics = async () => {
     if (!products) {
       return {
         success: false,
-        message: "Vendor Id is invalid!",
-        data: [],
-      };
-    }
-
-    if (products.length === 0) {
-      return {
-        success: false,
         message: "No products found for this vendor.",
         data: [],
       };
     }
-
     const individualSizeAnalytics = products.reduce((acc: any = {}, product: any) => {
       product.subProducts.forEach((subProduct: any) => {
         subProduct.sizes.forEach((size: any) => {
