@@ -45,7 +45,7 @@ const AllProductsPage = () => {
   }, [vendor]);
   return (
     <div className="container">
-      <div className="mb-[1rem] titleStyle">All Products</div>
+      <div className="mb-[1rem] titleStyle text-brand">All Products</div>
       {Array.isArray(products) && products.length > 0 ? (
         <ProductsDataTable products={products} />
       ) : (
