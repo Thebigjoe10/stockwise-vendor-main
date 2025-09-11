@@ -53,7 +53,6 @@ interface FormValues {
 }
 const CreateProductPage = () => {
   const [images, setImages] = useState<string[]>([]);
-  const [colorImagePreview, setColorImagePreview] = useState<string []>([]);
   const [parents, setParents] = useState<{ _id: string; name: string }[]>([]);
   const [categories, setCategories] = useState<{ _id: string; name: string }[]>(
     []
@@ -137,85 +136,138 @@ const CreateProductPage = () => {
       if (file) {
         const previewUrl = URL.createObjectURL(file);
         form.setFieldValue("color.image", file);
-        setColorImagePreview([previewUrl]);
+        setImages([previewUrl]);
       }
     },
     [form]
   );
   // handle Submit function:
-// Replace your current handleSubmit with this:
-const handleSubmit = async (values: FormValues) => {
-  if (!vendor) return alert("Vendor not loaded");
-  setLoading(true);
+  const handleSubmit = async (values: FormValues) => {
+    const createProductHandler = async () => {
+      const array = [];
+      let style_img = "";
+      let uploaded_images: any = "";
+      setLoading(true);
 
-  try {
-    // Upload product images
-    const uploadedImages = [];
-    for (const file of values.imageFiles) {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("upload_preset", "website");
+      // check if any images were uploaded
+      if (!values.imageFiles.length) {
+        alert("No image files are selected");
+        setLoading(false);
+        return;
+      }
+      // upload images to cloudinary
+      for (let i = 0; i < values.imageFiles.length; i++) {
+        const formData = new FormData();
+        formData.append("file", values.imageFiles[i]);
+        formData.append("upload_preset", "website");
+        try {
+          const uploadResponse = await fetch(
+            `https://api.cloudinary.com/v1_1/dtxh3ew7s/image/upload`,
+            {
+              method: "POST",
+              body: formData,
+            }
+          );
+          const uploadedImagesData = await uploadResponse.json();
+          array.push(uploadedImagesData);
+        } catch (error: any) {
+          console.log("Error uploading images:", error);
+          setLoading(false);
+          return;
+        }
+      }
 
-      const res = await fetch(
-        `https://api.cloudinary.com/v1_1/${process.env.CLOUDINARY_NAME}/image/upload`,
-        { method: "POST", body: formData }
-      );
-      const data = await res.json();
-      uploadedImages.push({ url: data.secure_url, public_id: data.public_id });
-    }
+      // Prepare the uploaded images for submission
+      uploaded_images = array.map((i) => ({
+        url: i.secure_url,
+        public_id: i.public_id,
+      }));
 
-    // Upload color image
-    let colorUrl = "";
-    if (values.color.image) {
-      const colorFormData = new FormData();
-      colorFormData.append("file", values.color.image);
-      colorFormData.append("upload_preset", "website");
+      // Handle color image upload if applicable
+      if (values.color.image) {
+        const colorFormData = new FormData();
+        colorFormData.append("file", values.color.image);
+        colorFormData.append("upload_preset", "website");
 
-      const colorRes = await fetch(
-        `https://api.cloudinary.com/v1_1/${process.env.CLOUDINARY_NAME}/image/upload`,
-        { method: "POST", body: colorFormData }
-      );
-      const colorData = await colorRes.json();
-      colorUrl = colorData.secure_url;
-    }
+        try {
+          const uploadResponse = await fetch(
+            `https://api.cloudinary.com/v1_1/dtxh3ew7s/image/upload`,
+            {
+              method: "POST",
+              body: colorFormData,
+            }
+          );
+          const uploadedImageData = await uploadResponse.json();
+          style_img = uploadedImageData.secure_url;
+        } catch (error) {
+          console.error("Error uploading color image:", error);
+          setLoading(false);
+          return;
+        }
+      }
 
-    // Submit to backend
-    const productDetails = {
-      ...values,
-      images: uploadedImages,
-      color: { color: values.color.color, image: colorUrl },
+      // Prepare the product details for submission
+      const productDetails = {
+        parent: values.parent,
+        sku: values.sku,
+        color: {
+          image: style_img,
+          color: values.color.color,
+        },
+        images: uploaded_images,
+        sizes: values.sizes,
+        discount: values.discount,
+        name: values.name,
+        description: values.description,
+        brand: values.brand,
+        details: values.details,
+        questions: values.questions,
+        category: values.category,
+        subCategories: values.subCategories,
+        benefits: values.benefits,
+        ingredients: values.ingredients,
+        longDescription: values.longDescription,
+      };
+
+      try {
+        await createProduct(
+          vendor._id,
+          productDetails.sku,
+          productDetails.color,
+          productDetails.images,
+          productDetails.sizes,
+          productDetails.discount,
+          productDetails.name,
+          productDetails.description,
+          productDetails.longDescription,
+
+          productDetails.brand,
+          productDetails.details,
+          productDetails.questions,
+          productDetails.category,
+          productDetails.subCategories,
+          productDetails.benefits,
+          productDetails.ingredients,
+          productDetails.parent
+        ).then((res) => {
+          if (res.success) {
+            setLoading(false);
+
+            alert(res.message || "Product created Successfully");
+          } else {
+            setLoading(false);
+
+            alert(res.message || "An error occurred.");
+          }
+        });
+      } catch (error) {
+        console.error("Error while creating the product:", error);
+        setLoading(false);
+        alert(error);
+      }
     };
-
-    const res = await createProduct(
-      vendor._id,
-      productDetails.sku,
-      productDetails.color,
-      productDetails.images,
-      productDetails.sizes,
-      productDetails.discount,
-      productDetails.name,
-      productDetails.description,
-      productDetails.longDescription,
-      productDetails.brand,
-      productDetails.details,
-      productDetails.questions,
-      productDetails.category,
-      productDetails.subCategories,
-      productDetails.benefits,
-      productDetails.ingredients,
-      productDetails.parent
-    );
-
-    if (res.success) alert(res.message || "Product created successfully");
-    else alert(res.message || "Error creating product");
-  } catch (err) {
-    console.error(err);
-    alert("Error uploading product");
-  } finally {
-    setLoading(false);
-  }
-};
-
+    await createProductHandler();
+  };
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -290,14 +342,14 @@ const handleSubmit = async (values: FormValues) => {
 
     fetchParentData();
   }, [form.values.parent]);
-  return (
+ return (
   <div className="max-w-5xl mx-auto p-6 bg-white rounded-2xl shadow-md">
-    <h1 className="text-2xl font-bold mb-6">Create a Product</h1>
+    <h1 className="text-2xl font-semibold text-brand mb-6">Create a Product</h1>
 
     <Box pos="relative">
       {loading && (
         <LoadingOverlay
-          visible={loading}
+          visible
           zIndex={1000}
           overlayProps={{ radius: "sm", blur: 2 }}
         />
@@ -305,13 +357,11 @@ const handleSubmit = async (values: FormValues) => {
 
       <form
         onSubmit={form.onSubmit((values: any) => handleSubmit(values))}
-        className="space-y-10"
+        className="space-y-8"
       >
-        {/* General Info */}
+        {/* General Information */}
         <section>
-          <h2 className="text-lg font-semibold mb-4 border-b pb-2">
-            General Information
-          </h2>
+          <h2 className="section-title">General Information</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <TextInput {...form.getInputProps("name")} label="Name" required />
             <TextInput {...form.getInputProps("brand")} label="Brand" />
@@ -321,31 +371,26 @@ const handleSubmit = async (values: FormValues) => {
               label="Discount"
               required
             />
+            <Textarea
+              {...form.getInputProps("description")}
+              label="Description"
+              required
+              minRows={3}
+            />
           </div>
-
-          <Textarea
-            {...form.getInputProps("description")}
-            label="Short Description"
-            placeholder="Enter product description..."
-            minRows={3}
-            className="mt-4"
-            required
-          />
         </section>
 
         {/* Color */}
         <section>
-          <h2 className="text-lg font-semibold mb-4 border-b pb-2">Color</h2>
+          <h2 className="section-title">Color</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <ColorInput
               {...form.getInputProps("color.color")}
               label="Select Color"
-              description="Pick a color for the product"
               required
             />
             <FileInput
               label="Color Image"
-              placeholder="Choose file"
               accept="image/*"
               onChange={(file) => handleColorImageChange(file as File)}
               required
@@ -355,9 +400,7 @@ const handleSubmit = async (values: FormValues) => {
 
         {/* Categories */}
         <section>
-          <h2 className="text-lg font-semibold mb-4 border-b pb-2">
-            Categories
-          </h2>
+          <h2 className="section-title">Categories</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {parents.length > 0 && (
               <Select
@@ -367,7 +410,6 @@ const handleSubmit = async (values: FormValues) => {
                 data={parents.map((p) => ({ value: p._id, label: p.name }))}
               />
             )}
-
             {categories.length > 0 && (
               <Select
                 {...form.getInputProps("category")}
@@ -382,46 +424,40 @@ const handleSubmit = async (values: FormValues) => {
           <MultiSelect
             {...form.getInputProps("subCategories")}
             label="Sub Categories"
-            placeholder="Pick subcategories"
+            placeholder="Select one or more"
             data={subs.map((s: any) => ({ value: s._id, label: s.name }))}
-            className="mt-4"
             required
           />
         </section>
 
         {/* Sizes */}
         <section>
-          <h2 className="text-lg font-semibold mb-4 border-b pb-2">Sizes</h2>
+          <h2 className="section-title">Sizes</h2>
           <div className="space-y-3">
-            {form.values.sizes.map((item, index) => (
-              <Group key={index} grow>
+            {form.values.sizes.map((_, index) => (
+              <Group key={index}>
                 <TextInput
-                  placeholder="Size"
                   {...form.getInputProps(`sizes.${index}.size`)}
+                  placeholder="Size"
                   required
                 />
                 <NumberInput
-                  placeholder="Quantity"
                   {...form.getInputProps(`sizes.${index}.qty`)}
+                  placeholder="Quantity"
                   required
                 />
                 <NumberInput
-                  placeholder="Price"
                   {...form.getInputProps(`sizes.${index}.price`)}
+                  placeholder="Price"
                   required
                 />
-                <Button
-                  variant="light"
-                  onClick={addSize}
-                  className="shrink-0"
-                >
+                <Button variant="outline" onClick={addSize}>
                   <IoAdd size={20} />
                 </Button>
                 <Button
                   color="red"
-                  variant="light"
+                  variant="outline"
                   onClick={() => form.removeListItem("sizes", index)}
-                  className="shrink-0"
                 >
                   <MdDelete size={20} />
                 </Button>
@@ -432,66 +468,60 @@ const handleSubmit = async (values: FormValues) => {
 
         {/* Benefits */}
         <section>
-          <h2 className="text-lg font-semibold mb-4 border-b pb-2">Benefits</h2>
-          <div className="space-y-3">
-            {form.values.benefits.map((item, index) => (
-              <Group key={index} grow>
-                <TextInput
-                  placeholder="Benefit"
-                  {...form.getInputProps(`benefits.${index}.name`)}
-                  required
-                />
-                <Button variant="light" onClick={addBenefit}>
-                  <IoAdd size={20} />
-                </Button>
-                <Button
-                  color="red"
-                  variant="light"
-                  onClick={() => form.removeListItem("benefits", index)}
-                >
-                  <MdDelete size={20} />
-                </Button>
-              </Group>
-            ))}
-          </div>
+          <h2 className="section-title">Benefits</h2>
+          {form.values.benefits.map((_, index) => (
+            <Group key={index} mt="xs">
+              <TextInput
+                {...form.getInputProps(`benefits.${index}.name`)}
+                placeholder="Benefit"
+                required
+              />
+              <Button variant="outline" onClick={addBenefit}>
+                <IoAdd size={20} />
+              </Button>
+              <Button
+                color="red"
+                variant="outline"
+                onClick={() => form.removeListItem("benefits", index)}
+              >
+                <MdDelete size={20} />
+              </Button>
+            </Group>
+          ))}
         </section>
 
         {/* Details */}
         <section>
-          <h2 className="text-lg font-semibold mb-4 border-b pb-2">Details</h2>
-          <div className="space-y-3">
-            {form.values.details.map((item, index) => (
-              <Group key={index} grow>
-                <TextInput
-                  placeholder="Name"
-                  {...form.getInputProps(`details.${index}.name`)}
-                  required
-                />
-                <TextInput
-                  placeholder="Value"
-                  {...form.getInputProps(`details.${index}.value`)}
-                  required
-                />
-                <Button variant="light" onClick={addDetail}>
-                  <IoAdd size={20} />
-                </Button>
-                <Button
-                  color="red"
-                  variant="light"
-                  onClick={() => form.removeListItem("details", index)}
-                >
-                  <MdDelete size={20} />
-                </Button>
-              </Group>
-            ))}
-          </div>
+          <h2 className="section-title">Details</h2>
+          {form.values.details.map((_, index) => (
+            <Group key={index} mt="xs">
+              <TextInput
+                {...form.getInputProps(`details.${index}.name`)}
+                placeholder="Name"
+                required
+              />
+              <TextInput
+                {...form.getInputProps(`details.${index}.value`)}
+                placeholder="Value"
+                required
+              />
+              <Button variant="outline" onClick={addDetail}>
+                <IoAdd size={20} />
+              </Button>
+              <Button
+                color="red"
+                variant="outline"
+                onClick={() => form.removeListItem("details", index)}
+              >
+                <MdDelete size={20} />
+              </Button>
+            </Group>
+          ))}
         </section>
 
         {/* Long Description */}
         <section>
-          <h2 className="text-lg font-semibold mb-4 border-b pb-2">
-            Long Description
-          </h2>
+          <h2 className="section-title">Long Description</h2>
           <JoditEditor
             ref={editor}
             value={form.values.longDescription}
@@ -501,11 +531,20 @@ const handleSubmit = async (values: FormValues) => {
           />
         </section>
 
+        {/* Featured */}
+        {/* <Switch
+          checked={featuredCheck}
+          onChange={(e) => setFeaturedCheck(e.currentTarget.checked)}
+          color="teal"
+          size="md"
+          label="Featured Product"
+        /> */}
+
         {/* Media */}
         <section>
-          <h2 className="text-lg font-semibold mb-4 border-b pb-2">Media</h2>
+          <h2 className="section-title">Media</h2>
           <FileInput
-            label="Upload product images"
+            label="Upload images"
             placeholder="Choose files"
             multiple
             accept="image/*"
@@ -514,31 +553,26 @@ const handleSubmit = async (values: FormValues) => {
           />
 
           <SimpleGrid cols={4} spacing="md" mt="md">
-          {images.map((image, index) => (
-            <Box key={index}>
-              <Image src={image} alt={`Uploaded image ${index + 1}`} radius="md" fit="cover" />
-            </Box>
-          ))}
-          {colorImagePreview && (
-            <Box>
-              <Image src={colorImagePreview} alt="Color Image" radius="md" fit="cover" />
-            </Box>
-          )}
-        </SimpleGrid>
-
+            {images.map((image, index) => (
+              <Box key={index}>
+                <Image
+                  src={image}
+                  alt={`Uploaded image ${index + 1}`}
+                  radius="md"
+                  fit="cover"
+                />
+              </Box>
+            ))}
+          </SimpleGrid>
         </section>
 
-        {/* Submit */}
-        <div className="flex justify-end">
-          <Button type="submit" color="blue" className="px-6">
-            {loading ? "Loading..." : "Submit"}
-          </Button>
-        </div>
+        <Button type="submit" mt="md" fullWidth>
+          {loading ? "Loading..." : "Submit"}
+        </Button>
       </form>
     </Box>
   </div>
 );
-
 };
 
 export default CreateProductPage;
